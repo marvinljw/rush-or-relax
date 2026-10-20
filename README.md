@@ -10,6 +10,17 @@ Open it and it tells you the next bus you can make at **Outram Pk Stn Exit 4**
 - Add it to your home screen to open it like an app.
 - Live arrivals from [arrivelah](https://arrivelah2.busrouter.sg); routes and stops from [busrouter.sg](https://busrouter.sg).
 
+## Plan a trip tab
+
+Pick a destination (OneMap search) and an arrive-by time; it tells you when to leave home by bus
+and when to book a taxi.
+
+- Bus routes are planned over [busrouter.sg](https://busrouter.sg) data (direct or one change, MRT not included).
+  Ride time is estimated from distance (~18 km/h) plus a waiting allowance per bus.
+- Within 90 min of leaving it switches to live arrivals at your first stop and names the exact bus to catch.
+- Taxi time is the [OSRM](https://project-osrm.org/) driving time plus a peak-hour factor, plus your taxi wait (default 10 min).
+- Home defaults to 530231; change it, the arrive-early buffer, bus wait and taxi wait on the page.
+
 ## Run locally
 
 ```bash

@@ -78,6 +78,58 @@
     background: var(--bg); color: var(--text); }
   .hint { color: var(--muted); font-size: 13px; padding: 0 16px 14px; margin: 0; }
 
+  .tabs { display: flex; gap: 4px; background: var(--card); border: 1px solid var(--line); border-radius: 999px; padding: 4px; margin-bottom: 14px; }
+  .tabs button { flex: 1; font: inherit; font-weight: 600; border: 0; background: none; color: var(--muted); padding: 8px; border-radius: 999px; cursor: pointer; }
+  .tabs button[aria-selected="true"] { background: var(--text); color: var(--bg); }
+
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 16px; }
+  .trip { padding: 4px 16px 14px; }
+  .row-edit { border: 0; margin: 0; border-radius: 0; background: none; overflow: visible; }
+  .row-edit summary, .row-edit.to { display: flex; align-items: center; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--line); }
+  .row-edit summary::after { content: "Change"; font-size: 14px; }
+  .row-edit summary { padding-left: 0; padding-right: 0; }
+  .lbl { color: var(--muted); font-size: 13px; min-width: 64px; }
+  .place { flex: 1; display: flex; flex-direction: column; }
+  .place span { color: var(--muted); font-size: 13px; }
+  .row-edit.to { border-bottom: 0; padding-bottom: 6px; }
+  .searchbox input { width: 100%; font: inherit; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--bg); color: var(--text); }
+  .row-edit .searchbox { padding: 10px 0; }
+  .results { display: flex; flex-direction: column; }
+  .pick { text-align: left; font: inherit; background: none; border: 0; border-bottom: 1px solid var(--line); color: var(--text); padding: 9px 4px; cursor: pointer; }
+  .pick span { display: block; color: var(--muted); font-size: 13px; }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+  .chip { font: inherit; font-size: 13px; border: 1px solid var(--line); background: var(--bg); color: var(--text); border-radius: 999px; padding: 5px 11px; cursor: pointer; }
+  .arrive { display: flex; align-items: center; gap: 12px; margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--line); flex-wrap: wrap; }
+  .arrive input { font: inherit; font-size: 20px; font-weight: 700; padding: 4px 8px; border: 1px solid var(--line); border-radius: 10px; background: var(--bg); color: var(--text); }
+  .daynote { color: var(--muted); font-size: 13px; }
+
+  .tiles { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 14px; }
+  .tile { border-radius: 18px; padding: 14px 16px; border: 2px solid var(--line); background: var(--card); }
+  .tile.bus { border-color: var(--ok); background: var(--ok-bg); }
+  .tile.taxi { border-color: var(--fast); background: var(--fast-bg); }
+  .tile .k { font-size: 13px; color: var(--muted); font-weight: 600; }
+  .tile .v { font-size: 38px; font-weight: 800; letter-spacing: -1px; line-height: 1.1; margin-top: 4px; font-variant-numeric: tabular-nums; }
+  .tile .s { font-size: 14px; font-weight: 600; }
+  .tile .n { font-size: 12px; color: var(--muted); margin-top: 6px; }
+  .late { color: var(--run); }
+  .livebox { margin: 10px 0 0; padding: 10px 14px; border-radius: 12px; background: var(--card); border: 1px solid var(--ok); font-size: 14px; }
+  .livebox.late { border-color: var(--run); }
+  #planOut h3 { font-size: 15px; margin: 20px 4px 8px; color: var(--muted); }
+  .opt { margin-top: 8px; }
+  .opt summary { display: grid; grid-template-columns: auto 1fr; gap: 2px 12px; align-items: center; }
+  .opt summary::after { display: none; }
+  .opt .when { font-weight: 800; font-size: 17px; }
+  .opt .what { text-align: right; }
+  .opt .dur { grid-column: 1 / -1; color: var(--muted); font-size: 13px; font-weight: 500; }
+  .no { display: inline-block; font-weight: 800; background: var(--text); color: var(--bg); border-radius: 6px; padding: 0 6px; font-size: 14px; }
+  .opt ol { margin: 0; padding: 4px 16px 14px 36px; font-size: 14px; }
+  .opt li { padding: 5px 0; }
+  .opt li.walk { color: var(--muted); }
+  .opt li .sub { display: block; color: var(--muted); font-size: 13px; }
+  .taxi { background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 4px 16px; font-size: 15px; }
+  .taxi .sub { color: var(--muted); font-size: 13px; margin-top: -6px; }
+  .pad { padding: 16px 4px; }
+
   .bus-pin { font: 700 12px system-ui, sans-serif; color: #fff; border-radius: 999px; padding: 2px 7px; white-space: nowrap;
     box-shadow: 0 1px 4px rgba(0,0,0,.35); border: 2px solid #fff; transform: translate(-50%, -50%); display: inline-block; }
   .bus-pin.run { background: var(--run); } .bus-pin.fast { background: var(--fast); } .bus-pin.ok { background: var(--ok); }
@@ -92,6 +144,12 @@
 </head>
 <body>
 <main>
+  <nav class="tabs" role="tablist">
+    <button role="tab" id="tabbtn-next" data-tab="next">Next bus</button>
+    <button role="tab" id="tabbtn-plan" data-tab="plan">Plan a trip</button>
+  </nav>
+
+  <section id="tab-next">
   <p class="where"><b>Outram Pk Stn Exit 4</b> → Connection One Tower 5</p>
 
   <section class="hero" id="hero" aria-live="polite"><div class="count">…</div></section>
@@ -109,7 +167,32 @@
     <label class="set" for="walk">Walk from train to Exit 4 stop (min)<input id="walk" type="number" min="0" max="30"></label>
     <p class="hint">The next bus shown is the first one you can still make after this walk.</p>
   </details>
+  </section>
+
+  <section id="tab-plan" hidden>
+    <div class="card trip">
+      <details id="homeEdit" class="row-edit">
+        <summary><span class="lbl">From</span><span class="place"><b id="homeLabel"></b><span id="homeSub"></span></span></summary>
+        <div class="searchbox"><input id="homeSearch" type="search" placeholder="Search home address or postal code" autocomplete="off"><div id="homeResults" class="results"></div></div>
+      </details>
+      <div class="row-edit to">
+        <span class="lbl">To</span><span class="place"><b id="destLabel"></b><span id="destSub"></span></span>
+      </div>
+      <div class="searchbox"><input id="destSearch" type="search" placeholder="Search a place, building or postal code" autocomplete="off"><div id="destResults" class="results"></div></div>
+      <div class="chips" id="recents"></div>
+      <label class="arrive"><span class="lbl">Arrive by</span><input id="arriveBy" type="time"><span id="dayNote" class="daynote"></span></label>
+    </div>
+    <div id="planOut"></div>
+    <details>
+      <summary>Planning settings</summary>
+      <label class="set" for="early">Arrive early by (min)<input id="early" type="number" min="0" max="60"></label>
+      <label class="set" for="busWait">Allow for waiting per bus (min)<input id="busWait" type="number" min="0" max="30"></label>
+      <label class="set" for="taxiWait">Time for a taxi to reach you (min)<input id="taxiWait" type="number" min="0" max="60"></label>
+    </details>
+  </section>
 </main>
+<script src="planner.js"></script>
+<script src="plan.js"></script>
 
 <script>
 // Services from Outram Pk Stn Exit 4 that stop within ~150 m of Tower 5 (see tools/find-routes.js).
@@ -275,6 +358,19 @@ walkInput.addEventListener("input", () => { walkMin = Math.max(0, +walkInput.val
 
 // Refresh when you come back to the app, not just on the timer.
 document.addEventListener("visibilitychange", () => { if (!document.hidden) refresh(); });
+
+// ---- Tabs ----
+function showTab(name) {
+  for (const t of ["next", "plan"]) {
+    document.getElementById("tab-" + t).hidden = t !== name;
+    document.getElementById("tabbtn-" + t).setAttribute("aria-selected", t === name);
+  }
+  try { localStorage.setItem("tab", name); } catch {}
+  if (name === "plan") PlanTab.open();
+  else if (map) map.invalidateSize();
+}
+document.querySelectorAll(".tabs button").forEach(b => b.onclick = () => showTab(b.dataset.tab));
+showTab(location.hash === "#plan" ? "plan" : (() => { try { return localStorage.getItem("tab"); } catch {} })() || "next");
 
 refresh();
 setInterval(refresh, 20000);
