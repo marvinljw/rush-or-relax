@@ -1,0 +1,397 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Rush or Relax</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<style>
+  :root {
+    --bg: #f6f6f3; --card: #ffffff; --text: #1d1d1b; --muted: #6b6b66; --line: #e3e2dc;
+    --run: #d6342c; --run-bg: #fde8e6; --fast: #b86e00; --fast-bg: #fdf1dc;
+    --ok: #1f7a4d; --ok-bg: #e2f4ea; --gone: #9a9a94; --accent: #2557d6;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #141413; --card: #1f1f1d; --text: #ecebe6; --muted: #9c9b95; --line: #33332f;
+      --run: #ff6b61; --run-bg: #3a1e1c; --fast: #f2a93b; --fast-bg: #352a17;
+      --ok: #4cc488; --ok-bg: #173126; --gone: #66665f; --accent: #7c9cff;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text);
+    font: 15px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  main { max-width: 560px; margin: 0 auto; padding: 16px 16px 48px; }
+  h1 { font-size: 20px; margin: 4px 0 2px; }
+  .sub { color: var(--muted); font-size: 13px; margin: 0 0 14px; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 14px 16px; margin-bottom: 12px; }
+
+  .mode { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  button { font: inherit; border: 1px solid var(--line); background: var(--card); color: var(--text);
+    border-radius: 999px; padding: 7px 14px; cursor: pointer; }
+  button.on { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .eta { color: var(--muted); font-size: 13px; margin-top: 8px; }
+
+  .verdict { border-width: 2px; }
+  .verdict .big { font-size: 30px; font-weight: 800; letter-spacing: -0.5px; }
+  .verdict .why { margin-top: 4px; }
+  .verdict.run { border-color: var(--run); background: var(--run-bg); } .verdict.run .big { color: var(--run); }
+  .verdict.fast { border-color: var(--fast); background: var(--fast-bg); } .verdict.fast .big { color: var(--fast); }
+  .verdict.ok { border-color: var(--ok); background: var(--ok-bg); } .verdict.ok .big { color: var(--ok); }
+
+  .row { display: grid; grid-template-columns: 64px 1fr auto; gap: 10px; align-items: center;
+    padding: 10px 0; border-top: 1px solid var(--line); }
+  .row:first-of-type { border-top: 0; }
+  .svc { font-weight: 800; font-size: 20px; text-align: center; border-radius: 10px; padding: 6px 0; background: var(--bg); }
+  .meta { font-size: 13px; color: var(--muted); }
+  .meta b { color: var(--text); font-weight: 600; }
+  .pill { font-size: 12px; font-weight: 700; border-radius: 999px; padding: 4px 10px; white-space: nowrap; text-align: center; }
+  .pill.run { background: var(--run-bg); color: var(--run); }
+  .pill.fast { background: var(--fast-bg); color: var(--fast); }
+  .pill.ok { background: var(--ok-bg); color: var(--ok); }
+  .pill.gone { color: var(--gone); }
+  .row.gone { opacity: .45; }
+  .mins { font-size: 12px; color: var(--muted); text-align: center; margin-top: 3px; }
+  .tag { display: inline-block; font-size: 11px; border: 1px solid var(--line); border-radius: 6px; padding: 0 5px; margin-left: 4px; }
+
+  .row { cursor: pointer; }
+  .row.sel { background: var(--bg); margin: 0 -16px; padding-left: 16px; padding-right: 16px; }
+
+  .mapcard { padding: 0; overflow: hidden; }
+  #map { height: 340px; background: var(--bg); }
+  .legend { display: flex; flex-wrap: wrap; gap: 6px 14px; padding: 10px 16px; font-size: 12px; color: var(--muted);
+    border-top: 1px solid var(--line); }
+  .legend i { display: inline-block; width: 14px; height: 4px; border-radius: 2px; vertical-align: middle; margin-right: 5px; }
+  .legend i.walk { background: none; border-top: 2px dashed var(--muted); height: 0; }
+  .bus-pin { font: 700 12px system-ui, sans-serif; color: #fff; border-radius: 999px; padding: 2px 7px;
+    white-space: nowrap; box-shadow: 0 1px 4px rgba(0,0,0,.35); border: 2px solid #fff; transform: translate(-50%, -50%);
+    display: inline-block; transition: transform .2s; }
+  .bus-pin.hl { transform: translate(-50%, -50%) scale(1.35); z-index: 10; }
+  .bus-pin.run { background: var(--run); } .bus-pin.fast { background: var(--fast); }
+  .bus-pin.ok { background: var(--ok); } .bus-pin.gone { background: var(--gone); }
+  .place-pin { font: 700 11px system-ui, sans-serif; color: #fff; background: #1d1d1b; border-radius: 6px;
+    padding: 3px 6px; white-space: nowrap; border: 2px solid #fff; box-shadow: 0 1px 4px rgba(0,0,0,.35);
+    transform: translate(-50%, -50%); display: inline-block; }
+  .place-pin.mrt { background: #9e28b5; transform: translate(-50%, 70%); }
+  .place-pin.dest { transform: translate(-50%, -150%); }
+  @media (prefers-color-scheme: dark) { .leaflet-tile-pane { filter: brightness(.6) contrast(1.1); } } .place-pin.dest { background: var(--accent); }
+  .fit-btn { font: 600 12px system-ui, sans-serif; background: #fff; color: #1d1d1b; border: 2px solid rgba(0,0,0,.2);
+    border-radius: 6px; padding: 5px 9px; cursor: pointer; }
+  .leaflet-div-icon { background: none; border: 0; }
+  .leaflet-container { font: inherit; }
+
+  details summary { cursor: pointer; font-weight: 600; }
+  .set { display: grid; grid-template-columns: 1fr 80px; gap: 8px 12px; align-items: center; margin-top: 12px; font-size: 14px; }
+  .set input { font: inherit; width: 80px; padding: 5px 8px; border: 1px solid var(--line); border-radius: 8px;
+    background: var(--bg); color: var(--text); }
+  .foot { color: var(--muted); font-size: 12px; margin-top: 16px; }
+  .err { color: var(--run); }
+</style>
+</head>
+<body>
+<main>
+  <h1>Rush or Relax</h1>
+  <p class="sub">Kovan → Outram Park (NE line) → bus → Connection One Tower 5</p>
+
+  <div class="card">
+    <div class="mode">
+      <button id="atOutram" class="on">I'm at Outram Park</button>
+      <button id="leaveKovan">Leaving Kovan now</button>
+    </div>
+    <div class="eta" id="etaText"></div>
+  </div>
+
+  <div class="card verdict" id="verdict"><div class="big">Loading…</div><div class="why"></div></div>
+
+  <div class="card mapcard">
+    <div id="map" role="img" aria-label="Map of Outram Park bus stops, bus routes to Bukit Merah and live bus positions"></div>
+    <div class="legend" id="legend"></div>
+  </div>
+
+  <div class="card" id="list"></div>
+
+  <div class="card">
+    <details>
+      <summary>Walking &amp; train times</summary>
+      <div class="set" id="settings"></div>
+      <p class="foot">Walk time = train door at the NE platform to the bus stop. Outram Park's NE platforms are deep, so allow a few minutes.</p>
+    </details>
+  </div>
+
+  <p class="foot" id="foot"></p>
+</main>
+
+<script>
+// Derived from busrouter.sg route data (see tools/find-routes.js):
+// the services from Outram Pk Stn Exit 4 that stop within ~150 m of Tower 5.
+const STOPS = [
+  { code: "05069", name: "Outram Pk Stn Exit 4", short: "Exit 4", road: "New Bridge Rd", walk: 4,
+    services: ["147", "961", "961M"], alight: "Bt Merah Town Ctr", stopsAway: 8 },
+];
+const DEFAULTS = { mrt: 18, ride: 14, walks: Object.fromEntries(STOPS.map(s => [s.code, s.walk])) };
+const LOAD = { SEA: "seats", SDA: "standing", LSD: "packed" };
+const TYPE = { SD: "single", DD: "double", BD: "bendy" };
+
+// Pace thresholds on slack (minutes between reaching the stop at normal pace and the bus arriving).
+const RUN_BELOW = 1, FAST_BELOW = 3, MISSED_BELOW = -1;
+
+let settings = load("settings", DEFAULTS);
+let arriveOutramAt = load("arriveOutramAt", null); // ms timestamp, null = already there
+let arrivals = {};   // stop code -> services array
+let fetchedAt = null, fetchError = null;
+
+function load(k, d) {
+  try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch { return d; }
+}
+function save(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} }
+
+const getJson = url => fetch(url).then(r => { if (!r.ok) throw new Error(r.status); return r.json(); });
+// arrivelah allows cross-origin calls, so this works as a static site (GitHub Pages);
+// the local server's /api/arrivals proxy is only a fallback.
+const getArrivals = code => getJson(`https://arrivelah2.busrouter.sg/?id=${code}`)
+  .catch(() => getJson(`/api/arrivals?id=${code}`));
+
+async function refresh() {
+  try {
+    const results = await Promise.all(STOPS.map(s => getArrivals(s.code)));
+    STOPS.forEach((s, i) => arrivals[s.code] = results[i].services || []);
+    fetchedAt = Date.now(); fetchError = null;
+  } catch (e) { fetchError = e.message; }
+  render();
+}
+
+function offsetMin() {
+  if (!arriveOutramAt) return 0;
+  const m = (arriveOutramAt - Date.now()) / 60000;
+  if (m <= 0) { arriveOutramAt = null; save("arriveOutramAt", null); setMode(); return 0; }
+  return m;
+}
+
+function buildOptions() {
+  const now = Date.now(), off = offsetMin(), out = [];
+  for (const stop of STOPS) {
+    const walk = +settings.walks[stop.code];
+    for (const svc of arrivals[stop.code] || []) {
+      if (!stop.services.includes(svc.no)) continue;
+      for (const b of [svc.next, svc.next2, svc.next3]) {
+        if (!b || !b.time) continue;
+        const t = new Date(b.time).getTime();
+        const inMin = (t - now) / 60000;
+        const slack = inMin - off - walk;
+        const pace = slack < MISSED_BELOW ? "gone" : slack < RUN_BELOW ? "run" : slack < FAST_BELOW ? "fast" : "ok";
+        out.push({ stop, svc: svc.no, t, inMin, slack, pace, walk, load: b.load, type: b.type,
+          live: b.monitored === 1, lat: b.lat, lng: b.lng, id: svc.no + "-" + t,
+          arriveDest: t + (settings.ride + 2) * 60000 });
+      }
+    }
+  }
+  return out.sort((a, b) => a.t - b.t);
+}
+
+const fmt = t => new Date(t).toLocaleTimeString("en-SG", { hour: "2-digit", minute: "2-digit", hour12: false });
+const mm = m => m < 0.5 && m > -0.5 ? "now" : `${Math.round(m)} min`;
+const LABEL = { run: "RUN", fast: "Walk fast", ok: "Relax", gone: "Missed" };
+
+function verdict(opts) {
+  const v = document.getElementById("verdict");
+  const catchable = opts.filter(o => o.pace !== "gone");
+  if (!catchable.length) {
+    v.className = "card verdict";
+    v.innerHTML = `<div class="big">No buses</div><div class="why">${fetchError ? "Couldn't reach arrivelah." : "Nothing in the arrival data right now."}</div>`;
+    return;
+  }
+  const first = catchable[0];
+  const comfy = catchable.find(o => o.pace === "ok");
+  const where = o => `<b>${o.svc}</b> at ${o.stop.name}`;
+  let cls = first.pace, big, why;
+
+  if (first.pace === "ok") {
+    big = "Relax";
+    why = `Take your time. ${where(first)} comes at ${fmt(first.t)} (in ${mm(first.inMin)}); you have ${mm(first.slack)} to spare.`;
+  } else {
+    const gain = comfy ? (comfy.t - first.t) / 60000 : Infinity;
+    if (comfy && gain <= 4) {
+      cls = "ok"; big = "Don't rush";
+      why = `${where(first)} needs a ${first.pace === "run" ? "sprint" : "brisk walk"}, but ${where(comfy)} is only ${Math.round(gain)} min later (${fmt(comfy.t)}).`;
+    } else {
+      big = first.pace === "run" ? "Run!" : "Walk fast";
+      why = `${where(first)} comes at ${fmt(first.t)} (in ${mm(first.inMin)}). ` +
+        (comfy ? `Miss it and the next easy one is ${Math.round(gain)} min later.` : "No other bus in the data after it.");
+    }
+  }
+  v.className = "card verdict " + cls;
+  v.innerHTML = `<div class="big">${big}</div><div class="why">${why}</div>`;
+}
+
+function render() {
+  const off = offsetMin();
+  document.getElementById("etaText").textContent = arriveOutramAt
+    ? `On the train: reaching Outram Park in ~${Math.ceil(off)} min (${fmt(arriveOutramAt)}).`
+    : "Timings assume you're stepping off the train at Outram Park now.";
+
+  const opts = buildOptions();
+  verdict(opts);
+  updateMap(opts);
+
+  const list = document.getElementById("list");
+  const shown = opts.filter(o => o.slack > -3).slice(0, 10);
+  list.innerHTML = shown.length ? shown.map(o => `
+    <div class="row ${o.pace === "gone" ? "gone" : ""} ${o.id === selected ? "sel" : ""}" data-id="${o.id}">
+      <div class="svc">${o.svc}</div>
+      <div>
+        <div><b>${mm(o.inMin)}</b> · ${fmt(o.t)}${o.live ? "" : '<span class="tag">scheduled</span>'}</div>
+        <div class="meta">${o.stop.name} · ${o.walk} min walk · ${LOAD[o.load] || ""}${o.type ? ", " + TYPE[o.type] : ""}</div>
+        <div class="meta">Tower 5 by ~<b>${fmt(o.arriveDest)}</b> via ${o.stop.alight}</div>
+      </div>
+      <div><div class="pill ${o.pace}">${LABEL[o.pace]}</div><div class="mins">${o.pace === "gone" ? "" : (o.slack >= 0 ? "+" : "") + Math.round(o.slack) + " min spare"}</div></div>
+    </div>`).join("") : '<div class="meta">No matching buses right now.</div>';
+
+  document.getElementById("foot").innerHTML = fetchError
+    ? `<span class="err">Last refresh failed (${fetchError}).</span>`
+    : fetchedAt ? `Live data from arrivelah · updated ${Math.round((Date.now() - fetchedAt) / 1000)}s ago · refreshes every 20s. "Tower 5 by" assumes ~${settings.ride} min ride + 2 min walk.` : "";
+}
+
+// ---- Map ----
+const SVC_COLOR = { "147": "#2b7bd6" };
+let routeBounds, fitted = false, lineGroups = [], map = null, busLayer, stopMarkers = {}, routeLines = {}, selected = null, lastSig = "";
+
+const LABEL_POS = { "05069": { direction: "left", offset: [-8, 0] } };
+
+function initMap(trip) {
+  if (!window.L) throw new Error("no leaflet");
+  map = L.map("map", { scrollWheelZoom: false });
+  L.tileLayer("https://www.onemap.gov.sg/maps/tiles/Grey/{z}/{x}/{y}.png", {
+    minZoom: 12, maxZoom: 19, detectRetina: true,
+    attribution: '<a href="https://www.onemap.gov.sg/" target="_blank">OneMap</a> &copy; contributors | <a href="https://www.sla.gov.sg/" target="_blank">Singapore Land Authority</a>',
+  }).addTo(map);
+
+  const { mrt, dest } = trip.places;
+  const walk = (a, b) => L.polyline([[a.lat, a.lng], [b.lat, b.lng]],
+    { color: "#666", weight: 2, dashArray: "4 6", opacity: .8 }).addTo(map);
+  trip.board.forEach(b => walk(mrt, b));
+  trip.alight.forEach(a => walk(a, dest));
+
+  // Services sharing a road (147 and 961/961M from Exit 4) share one line.
+  lineGroups = trip.lines.map(({ services: svcs, pts }) => {
+    const label = svcs.join(" · ");
+    const line = L.polyline(pts, { color: SVC_COLOR[svcs[0]], weight: 5, opacity: .9, lineJoin: "round" })
+      .bindTooltip(label, { sticky: true }).addTo(map);
+    svcs.forEach(x => routeLines[x] = line);
+    return { label, color: SVC_COLOR[svcs[0]], line };
+  });
+
+  const pin = (p, cls, label) => L.marker([p.lat, p.lng], { interactive: false,
+    icon: L.divIcon({ className: "", html: `<span class="place-pin ${cls}">${label}</span>`, iconSize: [0, 0] }) }).addTo(map);
+  pin(mrt, "mrt", "Outram Park MRT");
+  pin(dest, "dest", "Tower 5");
+
+  for (const s of trip.board) {
+    const cfg = STOPS.find(x => x.code === s.code);
+    stopMarkers[s.code] = L.circleMarker([s.lat, s.lng], { radius: 8, weight: 3, color: "#888", fillColor: "#fff", fillOpacity: 1 })
+      .bindTooltip(cfg.short, { permanent: true, ...LABEL_POS[s.code] })
+      .addTo(map);
+  }
+  for (const a of trip.alight) L.circleMarker([a.lat, a.lng], { radius: 6, weight: 2, color: "#555", fillColor: "#fff", fillOpacity: 1 })
+    .bindTooltip(a.name).addTo(map);
+
+  busLayer = L.layerGroup().addTo(map);
+  const FitControl = L.Control.extend({ onAdd() {
+    const b = L.DomUtil.create("button", "fit-btn");
+    b.textContent = "Fit buses"; b.title = "Zoom to the route and the next catchable buses";
+    L.DomEvent.disableClickPropagation(b);
+    b.onclick = () => fitView(buildOptions());
+    return b;
+  } });
+  new FitControl({ position: "topright" }).addTo(map);
+  routeBounds = L.featureGroup(lineGroups.map(g => g.line)).getBounds().extend([mrt.lat, mrt.lng]).extend([dest.lat, dest.lng]);
+  map.fitBounds(routeBounds, { padding: [24, 24] });
+
+  document.getElementById("legend").innerHTML =
+    lineGroups.map(g => `<span><i style="background:${g.color}"></i>${g.label}</span>`).join("") +
+    '<span><i class="walk"></i>walk</span><span>Pins = live bus GPS, coloured by pace · ring = next bus at that stop</span>';
+}
+
+function updateMap(opts) {
+  if (!map) return;
+  const css = getComputedStyle(document.documentElement);
+  const col = p => css.getPropertyValue("--" + (p === "gone" ? "gone" : p)).trim();
+
+  for (const s of STOPS) {
+    const next = opts.find(o => o.stop.code === s.code && o.pace !== "gone");
+    stopMarkers[s.code]?.setStyle({ color: next ? col(next.pace) : "#888" });
+  }
+
+  const sel = opts.find(o => o.id === selected);
+  for (const { line } of lineGroups) {
+    const on = !sel || routeLines[sel.svc] === line;
+    line.setStyle({ opacity: on ? .9 : .2, weight: sel && on ? 8 : 5 });
+    if (sel && on) line.bringToFront();
+  }
+
+  const live = opts.filter(o => o.live && o.lat && (o.pace !== "gone" || o.inMin > 0));
+  const sig = live.map(o => [o.id, o.pace, Math.round(o.inMin), o.lat, o.lng].join()).join("|") + selected;
+  if (!fitted && fetchedAt) { fitted = true; fitView(opts); }
+  if (sig === lastSig) return;
+  lastSig = sig;
+  busLayer.clearLayers();
+  const seen = new Set();
+  for (const o of live) {
+    const pos = o.lat.toFixed(4) + o.lng.toFixed(4) + o.svc;
+    if (seen.has(pos)) continue; seen.add(pos);  // same bus listed for two stops
+    L.marker([o.lat, o.lng], { zIndexOffset: o.id === selected ? 1000 : 0,
+      icon: L.divIcon({ className: "", iconSize: [0, 0],
+        html: `<span class="bus-pin ${o.pace} ${o.id === selected ? "hl" : ""}">${o.svc} · ${mm(o.inMin)}</span>` }) })
+      .on("click", () => select(o.id)).addTo(busLayer);
+  }
+}
+
+// Route plus the next two catchable buses that have GPS, so you can see them coming.
+function fitView(opts) {
+  const b = L.latLngBounds(routeBounds.getSouthWest(), routeBounds.getNorthEast());
+  opts.filter(o => o.live && o.lat && o.pace !== "gone").slice(0, 2).forEach(o => b.extend([o.lat, o.lng]));
+  map.fitBounds(b, { padding: [30, 30], maxZoom: 16 });
+}
+
+function select(id) {
+  selected = selected === id ? null : id;
+  const o = selected && buildOptions().find(x => x.id === selected);
+  if (o && map && o.live && o.lat) map.panTo([o.lat, o.lng]);
+  render();
+}
+
+function renderSettings() {
+  const rows = [["Kovan → Outram Park train (min)", "mrt", settings.mrt], ["Bus ride to Bukit Merah (min)", "ride", settings.ride]]
+    .concat(STOPS.map(s => [`Walk to ${s.name} (${s.services.join(", ")})`, "walk:" + s.code, settings.walks[s.code]]));
+  const el = document.getElementById("settings");
+  el.innerHTML = rows.map(([label, key, val]) =>
+    `<label for="k-${key}">${label}</label><input id="k-${key}" data-key="${key}" type="number" min="0" max="60" value="${val}">`).join("");
+  el.querySelectorAll("input").forEach(i => i.addEventListener("input", () => {
+    const n = Math.max(0, +i.value || 0), k = i.dataset.key;
+    if (k.startsWith("walk:")) settings.walks[k.slice(5)] = n; else settings[k] = n;
+    save("settings", settings); render();
+  }));
+}
+
+function setMode() {
+  document.getElementById("atOutram").classList.toggle("on", !arriveOutramAt);
+  document.getElementById("leaveKovan").classList.toggle("on", !!arriveOutramAt);
+}
+document.getElementById("atOutram").onclick = () => { arriveOutramAt = null; save("arriveOutramAt", null); setMode(); render(); };
+document.getElementById("leaveKovan").onclick = () => {
+  arriveOutramAt = Date.now() + settings.mrt * 60000; save("arriveOutramAt", arriveOutramAt); setMode(); render();
+};
+
+document.getElementById("list").addEventListener("click", e => {
+  const row = e.target.closest(".row"); if (row) select(row.dataset.id);
+});
+
+renderSettings(); setMode();
+fetch("trip-data.json").then(r => r.json()).then(initMap).catch(() => {
+  document.querySelector(".mapcard").style.display = "none";
+}).finally(refresh);
+setInterval(refresh, 20000);
+setInterval(render, 1000);
+</script>
+</body>
+</html>
