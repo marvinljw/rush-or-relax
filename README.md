@@ -1,13 +1,11 @@
 # Next Bus
 
-Open it and it tells you the next bus you can make, with one word of advice: Run, Walk fast or Relax.
+Open it and it shows the next bus and its live countdown, then the few after it.
 
 - **Going to work** (before 2pm): Outram Pk Stn Exit 4 → Connection One Tower 5 (147, 961, 961M).
 - **Coming back** (from 2pm): Opp Bt Merah Town Ctr → Outram Pk Stn Exit 6 (147, 197, 961, 961M).
 - It picks the direction from the time of day; tap the other one to switch until you reopen the app.
 
-- Big live countdown for the next bus you can still make after your walk from the train (default 4 min, editable).
-- The following few buses, plus any bus that's too close to make.
 - Warns when a time comes from the timetable instead of the bus's GPS.
 - Optional map with live bus positions. Map tiles from [OneMap](https://www.onemap.gov.sg/).
 - Add it to your home screen to open it like an app.

@@ -42,7 +42,7 @@
   .where b { color: var(--text); }
 
   .hero { border-radius: 22px; padding: 22px 22px 20px; background: var(--card); border: 2px solid var(--line); }
-  .hero.run { background: var(--run-bg); border-color: var(--run); }
+  .hero.soon { background: var(--run-bg); border-color: var(--run); }
   .hero.fast { background: var(--fast-bg); border-color: var(--fast); }
   .hero.ok { background: var(--ok-bg); border-color: var(--ok); }
   .hero-top { display: flex; align-items: baseline; gap: 16px; }
@@ -66,7 +66,6 @@
   .then-row .t span { color: var(--muted); }
   .tag { font-size: 12px; color: var(--muted); border: 1px solid var(--line); border-radius: 6px; padding: 1px 6px; white-space: nowrap; }
   .tag.packed { color: var(--fast); border-color: var(--fast); }
-  .missed { color: var(--muted); font-size: 13px; margin: 10px 4px 0; }
 
   .status { color: var(--muted); font-size: 13px; margin: 14px 4px 0; display: flex; align-items: center; gap: 6px; }
   .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--ok); }
@@ -137,8 +136,7 @@
 
   .bus-pin { font: 700 12px system-ui, sans-serif; color: #fff; border-radius: 999px; padding: 2px 7px; white-space: nowrap;
     box-shadow: 0 1px 4px rgba(0,0,0,.35); border: 2px solid #fff; transform: translate(-50%, -50%); display: inline-block; }
-  .bus-pin.run { background: var(--run); } .bus-pin.fast { background: var(--fast); } .bus-pin.ok { background: var(--ok); }
-  .bus-pin.gone { background: #8a8a84; }
+  .bus-pin { background: var(--accent); }
   .place-pin { font: 700 11px system-ui, sans-serif; color: #fff; background: #1d1d1b; border-radius: 6px; padding: 3px 6px;
     white-space: nowrap; border: 2px solid #fff; box-shadow: 0 1px 4px rgba(0,0,0,.35); transform: translate(-50%, -50%); display: inline-block; }
   .place-pin.mrt { background: #9e28b5; transform: translate(-50%, 70%); }
@@ -163,19 +161,13 @@
 
   <section class="hero" id="hero" aria-live="polite"><div class="count">…</div></section>
   <div id="then"></div>
-  <p class="missed" id="missed"></p>
   <p class="status" id="status"></p>
 
   <details id="mapBox">
     <summary>Where are the buses?</summary>
-    <div id="map" role="img" aria-label="Map of the 147, 961 and 961M route from Outram Park Exit 4 with live bus positions"></div>
+    <div id="map" role="img" aria-label="Map of the bus route with live bus positions"></div>
   </details>
 
-  <details>
-    <summary>Settings</summary>
-    <label class="set" for="walk"><span id="walkLabel"></span><input id="walk" type="number" min="0" max="30"></label>
-    <p class="hint">The next bus shown is the first one you can still make after this walk.</p>
-  </details>
   </section>
 
   <section id="tab-plan" hidden>
@@ -207,9 +199,9 @@
 // Buses between Outram Park MRT and Connection One Tower 5 (see tools/find-routes.js).
 const DIRS = {
   go: { code: "05069", services: ["147", "961", "961M"], from: "Outram Pk Stn Exit 4", to: "Connection One Tower 5",
-    walkKey: "walkMin", walkDefault: 4, walkLabel: "Walk from train to Exit 4 stop (min)", stopTip: "Exit 4" },
+    stopTip: "Exit 4" },
   back: { code: "10099", services: ["147", "197", "961", "961M"], from: "Opp Bt Merah Town Ctr", to: "Outram Pk Stn Exit 6 (MRT)",
-    walkKey: "walkMinBack", walkDefault: 5, walkLabel: "Walk from office to Opp Bt Merah Town Ctr (min)", stopTip: "Opp Bt Merah Town Ctr" },
+    stopTip: "Opp Bt Merah Town Ctr" },
 };
 // Before 2pm you're heading to work; after, heading home. A tap overrides it until the app is reopened.
 const autoDir = () => new Date().getHours() < 14 ? "go" : "back";
@@ -217,12 +209,6 @@ let dirKey = autoDir(), dirManual = false;
 let STOP = DIRS[dirKey];
 const LOAD = { SDA: "standing", LSD: "packed" };
 
-// Spare = minutes between reaching the stop at normal pace and the bus arriving.
-const RUN_BELOW = 1, FAST_BELOW = 3, MISSED_BELOW = -1;
-// If the bus you'd have to rush for is followed this closely by another, don't rush.
-const NOT_WORTH_RUSHING = 4;
-
-let walkMin = load(STOP.walkKey, STOP.walkDefault);
 let buses = [], fetchedAt = null, fetchError = null;
 
 function load(k, d) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch { return d; } }
@@ -253,12 +239,9 @@ async function refresh() {
   render();
 }
 
-function withPace(now = Date.now()) {
-  return buses.map(b => {
-    const inMin = (b.t - now) / 60000, spare = inMin - walkMin;
-    const pace = spare < MISSED_BELOW ? "gone" : spare < RUN_BELOW ? "run" : spare < FAST_BELOW ? "fast" : "ok";
-    return { ...b, inMin, spare, pace };
-  }).filter(b => b.inMin > -0.5);
+// Buses still to come, in arrival order (a bus stays listed until ~30s after its time).
+function upcoming(now = Date.now()) {
+  return buses.map(b => ({ ...b, inMin: (b.t - now) / 60000 })).filter(b => b.inMin > -0.5);
 }
 
 const fmt = t => new Date(t).toLocaleTimeString("en-SG", { hour: "2-digit", minute: "2-digit", hour12: false });
@@ -267,50 +250,34 @@ const tags = b => (b.live ? "" : ' <span class="tag">timetable</span>') +
   (LOAD[b.load] ? ` <span class="tag ${b.load === "LSD" ? "packed" : ""}">${LOAD[b.load]}</span>` : "");
 
 function countdown(m) {
-  if (m < 1) return `${Math.max(0, Math.round(m * 60))}<small>sec</small>`;
+  if (m < 0.25) return "Arriving";
+  if (m < 1) return `${Math.round(m * 60)}<small>sec</small>`;
   if (m < 2) { const s = Math.round(m * 60); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}<small>min</small>`; }
   return `${Math.round(m)}<small>min</small>`;
 }
 
 function render() {
-  const all = withPace();
-  const makeable = all.filter(b => b.pace !== "gone");
-  const tooClose = all.filter(b => b.pace === "gone");
+  const all = upcoming();
   const hero = document.getElementById("hero");
 
-  if (!makeable.length) {
+  if (!all.length) {
     hero.className = "hero";
     hero.innerHTML = fetchedAt || fetchError
       ? `<div class="advice">No buses right now<span>${fetchError ? "Couldn't reach the arrival service." : `Nothing in the arrival data for ${STOP.services.join(" / ")}.`}</span></div>`
       : `<div class="count">…</div>`;
   } else {
-    const next = makeable[0];
-    const later = makeable.find(b => b.t > next.t && b.pace === "ok");
-    let pace = next.pace, word, why;
-    if (next.pace === "ok") {
-      word = "Relax"; why = `${mins(next.spare)} min to spare after your ${walkMin} min walk`;
-    } else if (later && (later.t - next.t) / 60000 <= NOT_WORTH_RUSHING) {
-      pace = "ok"; word = "Don't rush";
-      why = `${later.svc} comes ${mins((later.t - next.t) / 60000)} min after it, at ${fmt(later.t)}`;
-    } else {
-      word = next.pace === "run" ? "Run" : "Walk fast";
-      why = later ? `Next easy one is ${mins((later.t - next.t) / 60000)} min later` : `Tight with your ${walkMin} min walk`;
-    }
-    hero.className = "hero " + pace;
+    const next = all[0];
+    hero.className = "hero" + (next.inMin < 1 ? " soon" : "");
     hero.innerHTML = `
       <div class="hero-top"><span class="svc">${next.svc}</span><span class="count">${countdown(next.inMin)}</span></div>
       <div class="at">Arrives <b>${fmt(next.t)}</b>${tags(next)}</div>
-      <div class="advice">${word}<span>${why}</span></div>
       ${next.live ? "" : '<div class="warn">No GPS on this bus — time is from the timetable and may be off.</div>'}`;
   }
 
-  const rest = makeable.slice(1, 4);
+  const rest = all.slice(1, 5);
   document.getElementById("then").innerHTML = rest.length ? `<div class="then">${rest.map(b => `
     <div class="then-row"><span class="svc">${b.svc}</span>
       <span class="t"><b>${mins(b.inMin)} min</b> <span>· ${fmt(b.t)}</span></span>${tags(b)}</div>`).join("")}</div>` : "";
-
-  document.getElementById("missed").textContent = tooClose.length
-    ? `Too close to make: ${tooClose.map(b => `${b.svc} in ${mins(b.inMin)} min`).join(", ")}` : "";
 
   const age = fetchedAt ? Math.round((Date.now() - fetchedAt) / 1000) : null;
   const stale = fetchError || age > 60;
@@ -355,7 +322,7 @@ function drawTrip() {
   L.circleMarker([d.board.lat, d.board.lng], { radius: 8, weight: 3, color: "#2b7bd6", fillColor: "#fff", fillOpacity: 1 })
     .bindTooltip(STOP.stopTip, { permanent: true, direction: "left", offset: [-8, 0] }).addTo(tripLayer);
   const bounds = line.getBounds().extend([from.lat, from.lng]).extend([to.lat, to.lng]);
-  withPace().filter(b => b.live && b.lat && b.pace !== "gone").slice(0, 2).forEach(b => bounds.extend([b.lat, b.lng]));
+  upcoming().filter(b => b.live && b.lat).slice(0, 2).forEach(b => bounds.extend([b.lat, b.lng]));
   map.fitBounds(bounds, { padding: [30, 30], maxZoom: 16 });
   lastSig = "";
   render();
@@ -364,12 +331,12 @@ function drawTrip() {
 function updateMap(all) {
   if (!map) return;
   const live = all.filter(b => b.live && b.lat);
-  const sig = live.map(b => [b.svc, b.pace, mins(b.inMin), b.lat, b.lng].join()).join("|");
+  const sig = live.map(b => [b.svc, mins(b.inMin), b.lat, b.lng].join()).join("|");
   if (sig === lastSig) return;
   lastSig = sig;
   busLayer.clearLayers();
   for (const b of live) L.marker([b.lat, b.lng], { interactive: false, icon: L.divIcon({ className: "", iconSize: [0, 0],
-    html: `<span class="bus-pin ${b.pace}">${b.svc} · ${mins(b.inMin)}m</span>` }) }).addTo(busLayer);
+    html: `<span class="bus-pin">${b.svc} · ${mins(b.inMin)}m</span>` }) }).addTo(busLayer);
 }
 
 document.getElementById("mapBox").addEventListener("toggle", e => {
@@ -378,17 +345,12 @@ document.getElementById("mapBox").addEventListener("toggle", e => {
   else if (map) map.invalidateSize();
 });
 
-const walkInput = document.getElementById("walk");
-walkInput.addEventListener("input", () => { walkMin = Math.max(0, +walkInput.value || 0); save(STOP.walkKey, walkMin); render(); });
 
 // ---- Direction ----
 function setDir(key, manual) {
   const changed = key !== dirKey;
   dirKey = key; STOP = DIRS[key];
   if (manual) dirManual = true;
-  walkMin = load(STOP.walkKey, STOP.walkDefault);
-  walkInput.value = walkMin;
-  document.getElementById("walkLabel").textContent = STOP.walkLabel;
   document.getElementById("where").innerHTML = `<b>${STOP.from}</b> → ${STOP.to}`;
   document.querySelectorAll(".dirs button").forEach(b => {
     b.setAttribute("aria-selected", b.dataset.dir === key);
