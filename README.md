@@ -20,7 +20,7 @@ and when to book a taxi.
   Ride time is estimated from distance (~18 km/h) plus a waiting allowance per bus.
 - Within 90 min of leaving it switches to live arrivals at your first stop and names the exact bus to catch.
 - Taxi time is the [OSRM](https://project-osrm.org/) driving time plus a peak-hour factor, plus your taxi wait (default 10 min).
-- Home defaults to 530231; change it, the arrive-early buffer, bus wait and taxi wait on the page.
+- "From" defaults to McDonald's Hougang St 21; change it, the arrive-early buffer, bus wait and taxi wait on the page.
 
 ## Run locally
 

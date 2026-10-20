@@ -1,4 +1,4 @@
-// "Plan a trip" tab: when to leave home (bus) or book a taxi to arrive by a set time.
+// "Plan a trip" tab: when to leave (bus) or book a taxi to arrive by a set time.
 (function () {
   const $ = id => document.getElementById(id);
   const esc = s => String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
@@ -9,10 +9,12 @@
   const getJson = url => fetch(url).then(res => { if (!res.ok) throw new Error(res.status); return res.json(); });
 
   const TOWER5 = { label: "Connection One Tower 5", sub: "167 Jalan Bukit Merah", lat: 1.28273, lng: 103.81818 };
-  const DEFAULT_HOME = { label: "231 Hougang St 21", sub: "Singapore 530231", lat: 1.35813, lng: 103.88790 };
+  // Location from OpenStreetMap (OneMap search does not list this outlet).
+  const DEFAULT_HOME = { label: "McDonald's Hougang St 21", sub: "Hougang Street 21", lat: 1.35854, lng: 103.88634 };
   const LIVE_WITHIN_MIN = 90;   // use live arrivals when you'd leave within this window
 
   let home = load("plan.home", DEFAULT_HOME);
+  if (home.label === "231 Hougang St 21") { home = DEFAULT_HOME; save("plan.home", home); }   // old default
   let dest = load("plan.dest", null);
   let recents = load("plan.recents", [TOWER5]);
   let prefs = load("plan.prefs", { arriveBy: "09:00", early: 5, busWait: 6, taxiWait: 10 });
@@ -166,14 +168,14 @@
     const topBuses = top ? top.legs.filter(l => l.type === "bus").map(l => esc(live && !live.none && l === top.legs[1] ? live.no : l.alts.join("/"))).join(" → ") : "";
     const taxiNote = result.taxi ? `${prefs.taxiWait} min wait + ${r(result.taxi.ride)} min ride` : "";
     let html = `<div class="tiles">
-      ${tile("bus", "Bus: leave home", busLeave, result.busError ? "Bus data unavailable" : "No bus route found", "Bus " + topBuses)}
+      ${tile("bus", "Bus: leave by", busLeave, result.busError ? "Bus data unavailable" : "No bus route found", "Bus " + topBuses)}
       ${tile("taxi", "Taxi: book by", taxiBook, "Driving time unavailable", taxiNote)}
     </div>`;
 
     if (live && !live.none) {
       html += `<p class="livebox ${live.late ? "late" : ""}">${live.late
         ? `<b>Running late:</b> the next ${esc(live.no)} (${fmt(live.t)}) gets you there around <b>${fmt(live.arriveAt)}</b>.`
-        : `<b>Live:</b> catch the <b>${esc(live.no)}</b> at ${fmt(live.t)} from ${esc(live.stop)} — leave home at <b>${fmt(live.leaveAt)}</b>, arrive ~${fmt(live.arriveAt)}.`}
+        : `<b>Live:</b> catch the <b>${esc(live.no)}</b> at ${fmt(live.t)} from ${esc(live.stop)} — leave at <b>${fmt(live.leaveAt)}</b>, arrive ~${fmt(live.arriveAt)}.`}
         ${live.live ? "" : " <span class='tag'>timetable</span>"}</p>`;
     }
 
