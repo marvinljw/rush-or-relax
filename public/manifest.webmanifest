@@ -1,7 +1,7 @@
 {
-  "name": "Next Bus · Outram Exit 4",
+  "name": "Next Bus",
   "short_name": "Next Bus",
-  "description": "Next 147 / 961 / 961M from Outram Pk Stn Exit 4 to Connection One Tower 5",
+  "description": "Next bus between Outram Park and Connection One Tower 5, and when to leave home",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",

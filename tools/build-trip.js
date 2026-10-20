@@ -8,12 +8,12 @@ const PLACES = {
   mrt: { name: "Outram Park MRT", lat: 1.2802, lng: 103.8395 },
   dest: { name: "Connection One Tower 5", lat: 1.28273, lng: 103.81818 },
 };
-const BOARD = ["05069"];
-const ALIGHT = ["10091"];
-// One drawn line per shared leg; the first service's road path is used for the line.
-const LEGS = [
-  { services: ["147", "961", "961M"], from: "05069", to: "10091" },
-];
+// go = morning (Outram Park -> Tower 5), back = evening (Tower 5 -> Outram Park).
+// One drawn line per leg; the first service's road path is used for the line.
+const DIRECTIONS = {
+  go: { start: "mrt", end: "dest", services: ["147", "961", "961M"], from: "05069", to: "10091" },
+  back: { start: "dest", end: "mrt", services: ["147", "197", "961", "961M"], from: "10099", to: "10018" },
+};
 
 function decode(str) {
   const pts = [];
@@ -43,19 +43,20 @@ const nearest = (pts, p, from = 0) => {
     ["stops.min.json", "services.min.json", "routes.min.json"].map(get));
   const stop = c => ({ code: c, name: stops[c][2], road: stops[c][3], lat: stops[c][1], lng: stops[c][0] });
 
-  const lines = [];
-  for (const { services: svcs, from, to } of LEGS) {
+  const directions = {};
+  for (const [key, { start, end, services: svcs, from, to }] of Object.entries(DIRECTIONS)) {
     const no = svcs[0];
     const dir = services[no].routes.findIndex(r => r.includes(from) && r.indexOf(to) > r.indexOf(from));
     const pts = decode(routes[no][dir]);
     const s = stop(from), e = stop(to);
     const i = nearest(pts, [s.lat, s.lng]);
     const j = nearest(pts, [e.lat, e.lng], i);
-    lines.push({ services: svcs, pts: pts.slice(i, j + 1).map(([a, b]) => [+a.toFixed(5), +b.toFixed(5)]) });
+    directions[key] = { start, end, board: s, alight: e,
+      line: { services: svcs, pts: pts.slice(i, j + 1).map(([a, b]) => [+a.toFixed(5), +b.toFixed(5)]) } };
   }
 
-  const out = { places: PLACES, board: BOARD.map(stop), alight: ALIGHT.map(stop), lines };
+  const out = { places: PLACES, directions };
   const file = path.join(__dirname, "..", "public", "trip-data.json");
   fs.writeFileSync(file, JSON.stringify(out));
-  console.log("wrote", file, lines.map(l => l.services.join("/") + ": " + l.pts.length + " pts"));
+  console.log("wrote", file, Object.entries(directions).map(([k, d]) => `${k}: ${d.board.name} -> ${d.alight.name}, ${d.line.pts.length} pts`));
 })();

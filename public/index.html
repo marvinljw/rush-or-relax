@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Next Bus · Exit 4</title>
-<meta name="description" content="Next bus from Outram Pk Stn Exit 4 to Connection One Tower 5">
+<title>Next Bus</title>
+<meta name="description" content="Next bus between Outram Park and Connection One Tower 5, and when to leave home">
 <meta name="theme-color" content="#141413">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
@@ -33,6 +33,11 @@
     font: 16px/1.4 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
   main { max-width: 480px; margin: 0 auto; padding: max(16px, env(safe-area-inset-top)) 16px 40px; }
 
+  .dirs { display: flex; gap: 6px; margin: 0 0 8px; }
+  .dirs button { font: inherit; font-size: 14px; font-weight: 600; border: 1px solid var(--line); background: none; color: var(--muted);
+    padding: 6px 14px; border-radius: 999px; cursor: pointer; }
+  .dirs button[aria-selected="true"] { border-color: var(--text); color: var(--text); }
+  .dirs .auto { font-size: 11px; font-weight: 500; color: var(--muted); margin-left: 6px; }
   .where { color: var(--muted); font-size: 14px; margin: 4px 2px 10px; }
   .where b { color: var(--text); }
 
@@ -150,7 +155,11 @@
   </nav>
 
   <section id="tab-next">
-  <p class="where"><b>Outram Pk Stn Exit 4</b> → Connection One Tower 5</p>
+  <div class="dirs" role="tablist" aria-label="Direction">
+    <button role="tab" data-dir="go">Going to work</button>
+    <button role="tab" data-dir="back">Coming back</button>
+  </div>
+  <p class="where" id="where"></p>
 
   <section class="hero" id="hero" aria-live="polite"><div class="count">…</div></section>
   <div id="then"></div>
@@ -164,7 +173,7 @@
 
   <details>
     <summary>Settings</summary>
-    <label class="set" for="walk">Walk from train to Exit 4 stop (min)<input id="walk" type="number" min="0" max="30"></label>
+    <label class="set" for="walk"><span id="walkLabel"></span><input id="walk" type="number" min="0" max="30"></label>
     <p class="hint">The next bus shown is the first one you can still make after this walk.</p>
   </details>
   </section>
@@ -195,8 +204,17 @@
 <script src="plan.js"></script>
 
 <script>
-// Services from Outram Pk Stn Exit 4 that stop within ~150 m of Tower 5 (see tools/find-routes.js).
-const STOP = { code: "05069", services: ["147", "961", "961M"] };
+// Buses between Outram Park MRT and Connection One Tower 5 (see tools/find-routes.js).
+const DIRS = {
+  go: { code: "05069", services: ["147", "961", "961M"], from: "Outram Pk Stn Exit 4", to: "Connection One Tower 5",
+    walkKey: "walkMin", walkDefault: 4, walkLabel: "Walk from train to Exit 4 stop (min)", stopTip: "Exit 4" },
+  back: { code: "10099", services: ["147", "197", "961", "961M"], from: "Opp Bt Merah Town Ctr", to: "Outram Pk Stn Exit 6 (MRT)",
+    walkKey: "walkMinBack", walkDefault: 5, walkLabel: "Walk from office to Opp Bt Merah Town Ctr (min)", stopTip: "Opp Bt Merah Town Ctr" },
+};
+// Before 2pm you're heading to work; after, heading home. A tap overrides it until the app is reopened.
+const autoDir = () => new Date().getHours() < 14 ? "go" : "back";
+let dirKey = autoDir(), dirManual = false;
+let STOP = DIRS[dirKey];
 const LOAD = { SDA: "standing", LSD: "packed" };
 
 // Spare = minutes between reaching the stop at normal pace and the bus arriving.
@@ -204,7 +222,7 @@ const RUN_BELOW = 1, FAST_BELOW = 3, MISSED_BELOW = -1;
 // If the bus you'd have to rush for is followed this closely by another, don't rush.
 const NOT_WORTH_RUSHING = 4;
 
-let walkMin = load("walkMin", 4);
+let walkMin = load(STOP.walkKey, STOP.walkDefault);
 let buses = [], fetchedAt = null, fetchError = null;
 
 function load(k, d) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch { return d; } }
@@ -218,7 +236,9 @@ const getArrivals = code => getJson(`https://arrivelah2.busrouter.sg/?id=${code}
 
 async function refresh() {
   try {
-    const data = await getArrivals(STOP.code);
+    const want = STOP;
+    const data = await getArrivals(want.code);
+    if (want !== STOP) return;   // direction changed while loading
     buses = [];
     for (const svc of data.services || []) {
       if (!STOP.services.includes(svc.no)) continue;
@@ -261,7 +281,7 @@ function render() {
   if (!makeable.length) {
     hero.className = "hero";
     hero.innerHTML = fetchedAt || fetchError
-      ? `<div class="advice">No buses right now<span>${fetchError ? "Couldn't reach the arrival service." : "Nothing in the arrival data for 147 / 961 / 961M."}</span></div>`
+      ? `<div class="advice">No buses right now<span>${fetchError ? "Couldn't reach the arrival service." : `Nothing in the arrival data for ${STOP.services.join(" / ")}.`}</span></div>`
       : `<div class="count">…</div>`;
   } else {
     const next = makeable[0];
@@ -302,11 +322,10 @@ function render() {
 }
 
 // ---- Map (built the first time it is opened) ----
-let map = null, busLayer, lastSig = "";
+let map = null, busLayer, tripLayer, trip = null, lastSig = "";
 
 async function initMap() {
-  const trip = await getJson("trip-data.json");
-  const dark = matchMedia("(prefers-color-scheme: dark)").matches;
+  trip = await getJson("trip-data.json");
   map = L.map("map", { scrollWheelZoom: false });
   L.tileLayer("https://www.onemap.gov.sg/maps/tiles/Grey/{z}/{x}/{y}.png", {
     minZoom: 12, maxZoom: 19, detectRetina: true,
@@ -314,24 +333,31 @@ async function initMap() {
   }).addTo(map);
 
   const { mrt, dest } = trip.places;
-  const dash = (a, b) => L.polyline([[a.lat, a.lng], [b.lat, b.lng]], { color: "#666", weight: 2, dashArray: "4 6" }).addTo(map);
-  trip.board.forEach(b => dash(mrt, b));
-  trip.alight.forEach(a => dash(a, dest));
-  const lines = trip.lines.map(l => L.polyline(l.pts, { color: dark ? "#7c9cff" : "#2b7bd6", weight: 5, opacity: .9 })
-    .bindTooltip(l.services.join(" · "), { sticky: true }).addTo(map));
-
   const pin = (p, cls, label) => L.marker([p.lat, p.lng], { interactive: false,
     icon: L.divIcon({ className: "", html: `<span class="place-pin ${cls}">${label}</span>`, iconSize: [0, 0] }) }).addTo(map);
   pin(mrt, "mrt", "Outram Park MRT");
   pin(dest, "dest", "Tower 5");
-  for (const s of trip.board) L.circleMarker([s.lat, s.lng], { radius: 8, weight: 3, color: "#2b7bd6", fillColor: "#fff", fillOpacity: 1 })
-    .bindTooltip("Exit 4", { permanent: true, direction: "left", offset: [-8, 0] }).addTo(map);
-
+  tripLayer = L.layerGroup().addTo(map);
   busLayer = L.layerGroup().addTo(map);
-  // Route plus the next two buses with GPS, so you can see them coming.
-  const bounds = L.featureGroup(lines).getBounds().extend([mrt.lat, mrt.lng]).extend([dest.lat, dest.lng]);
+  drawTrip();
+}
+
+// The route for the current direction, zoomed to it plus the next two buses with GPS.
+function drawTrip() {
+  if (!map || !trip) return;
+  const d = trip.directions[dirKey], from = trip.places[d.start], to = trip.places[d.end];
+  const dark = matchMedia("(prefers-color-scheme: dark)").matches;
+  tripLayer.clearLayers();
+  const dash = (a, b) => L.polyline([[a.lat, a.lng], [b.lat, b.lng]], { color: "#666", weight: 2, dashArray: "4 6" }).addTo(tripLayer);
+  dash(from, d.board); dash(d.alight, to);
+  const line = L.polyline(d.line.pts, { color: dark ? "#7c9cff" : "#2b7bd6", weight: 5, opacity: .9 })
+    .bindTooltip(STOP.services.join(" · "), { sticky: true }).addTo(tripLayer);
+  L.circleMarker([d.board.lat, d.board.lng], { radius: 8, weight: 3, color: "#2b7bd6", fillColor: "#fff", fillOpacity: 1 })
+    .bindTooltip(STOP.stopTip, { permanent: true, direction: "left", offset: [-8, 0] }).addTo(tripLayer);
+  const bounds = line.getBounds().extend([from.lat, from.lng]).extend([to.lat, to.lng]);
   withPace().filter(b => b.live && b.lat && b.pace !== "gone").slice(0, 2).forEach(b => bounds.extend([b.lat, b.lng]));
   map.fitBounds(bounds, { padding: [30, 30], maxZoom: 16 });
+  lastSig = "";
   render();
 }
 
@@ -353,11 +379,34 @@ document.getElementById("mapBox").addEventListener("toggle", e => {
 });
 
 const walkInput = document.getElementById("walk");
-walkInput.value = walkMin;
-walkInput.addEventListener("input", () => { walkMin = Math.max(0, +walkInput.value || 0); save("walkMin", walkMin); render(); });
+walkInput.addEventListener("input", () => { walkMin = Math.max(0, +walkInput.value || 0); save(STOP.walkKey, walkMin); render(); });
+
+// ---- Direction ----
+function setDir(key, manual) {
+  const changed = key !== dirKey;
+  dirKey = key; STOP = DIRS[key];
+  if (manual) dirManual = true;
+  walkMin = load(STOP.walkKey, STOP.walkDefault);
+  walkInput.value = walkMin;
+  document.getElementById("walkLabel").textContent = STOP.walkLabel;
+  document.getElementById("where").innerHTML = `<b>${STOP.from}</b> → ${STOP.to}`;
+  document.querySelectorAll(".dirs button").forEach(b => {
+    b.setAttribute("aria-selected", b.dataset.dir === key);
+    b.innerHTML = (b.dataset.dir === "go" ? "Going to work" : "Coming back") +
+      (b.dataset.dir === key && !dirManual ? '<span class="auto">auto</span>' : "");
+  });
+  if (changed) { buses = []; fetchedAt = null; fetchError = null; render(); refresh(); drawTrip(); }
+}
+document.querySelectorAll(".dirs button").forEach(b => b.onclick = () => setDir(b.dataset.dir, true));
+setDir(dirKey);
+// Follow the clock (e.g. app left open past 2pm) unless you picked a direction yourself.
+setInterval(() => { if (!dirManual && autoDir() !== dirKey) setDir(autoDir()); }, 60000);
 
 // Refresh when you come back to the app, not just on the timer.
-document.addEventListener("visibilitychange", () => { if (!document.hidden) refresh(); });
+document.addEventListener("visibilitychange", () => {
+  if (document.hidden) return;
+  if (!dirManual && autoDir() !== dirKey) setDir(autoDir()); else refresh();
+});
 
 // ---- Tabs ----
 function showTab(name) {

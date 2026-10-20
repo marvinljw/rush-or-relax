@@ -1,7 +1,10 @@
-# Next Bus · Outram Exit 4
+# Next Bus
 
-Open it and it tells you the next bus you can make at **Outram Pk Stn Exit 4**
-(147, 961, 961M) on the way to **Connection One Tower 5**, with one word of advice: Run, Walk fast or Relax.
+Open it and it tells you the next bus you can make, with one word of advice: Run, Walk fast or Relax.
+
+- **Going to work** (before 2pm): Outram Pk Stn Exit 4 → Connection One Tower 5 (147, 961, 961M).
+- **Coming back** (from 2pm): Opp Bt Merah Town Ctr → Outram Pk Stn Exit 6 (147, 197, 961, 961M).
+- It picks the direction from the time of day; tap the other one to switch until you reopen the app.
 
 - Big live countdown for the next bus you can still make after your walk from the train (default 4 min, editable).
 - The following few buses, plus any bus that's too close to make.
